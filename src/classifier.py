@@ -1,17 +1,14 @@
-"""Few-shot LLM intent classifier — the "real" system, evaluated against the two
-baselines in intents.py.
-
-Uses structured JSON output so we get a label + confidence + short rationale, which
-the escalation policy (escalation.py) consumes directly.
-"""
 from __future__ import annotations
 
 import json
 import os
+from dotenv import load_dotenv
 
 from openai import OpenAI
 
 from intents import INTENTS
+
+load_dotenv()
 
 _CLIENT = None
 
@@ -43,6 +40,7 @@ FEW_SHOT = [
     {"text": "you charged me twice for the same order, I want my money back", "label": "billing_refund"},
     {"text": "my package says delivered but it's not here", "label": "order_delivery"},
     {"text": "app has been down all morning, is this a known issue?", "label": "service_outage"},
+    {"text": "my driver crashed and I hit my head", "label": "safety_incident"},
     {"text": "this is the third time this has happened, absolutely unacceptable service",
      "label": "complaint_escalation"},
 ]

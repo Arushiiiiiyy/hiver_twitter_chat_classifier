@@ -21,18 +21,15 @@ def clean_text(text: str, is_reply: bool = False) -> str:
 
 
 def is_probably_english(text: str, non_ascii_threshold: float = 0.3) -> bool:
-    """Here, we are stripping away comments in different languages by detecting the script, ie any 
-    script which is not english. This might pass for languages with english scripts like Spanish, but we 
-    will look into it later"""
+    """Language filter based on script, not word-level language ID.
+    """
     if not text:
         return True
-    non_ascii = sum(1 for c in text if ord(c) > 0x2FF)  
+    non_ascii = sum(1 for c in text if ord(c) > 0x2FF)  # beyond Latin/Greek/Cyrillic block
     return (non_ascii / len(text)) <= non_ascii_threshold
 
 
 def build_pairs(df: pd.DataFrame, brand: str, filter_english: bool = True) -> list[dict]:
-    """This function helps me build pairs of customer tweet and company tweet. Recursive tweets not
-     handled as of now"""
     df = df.set_index("tweet_id", drop=False)
     brand_tweets = df[(df["author_id"] == brand) & (df["inbound"] == False)]  # noqa: E712
 
