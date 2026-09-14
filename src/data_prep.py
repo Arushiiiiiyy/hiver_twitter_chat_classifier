@@ -1,9 +1,13 @@
 import argparse
 import json
+import os
 import re
 from pathlib import Path
 
+from dotenv import load_dotenv
 import pandas as pd
+
+load_dotenv()
 
 HANDLE_RE = re.compile(r"@\w+")
 URL_RE = re.compile(r"https?://\S+")
@@ -76,7 +80,9 @@ def build_pairs(df: pd.DataFrame, brand: str, filter_english: bool = True) -> li
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", default="data/raw/twcs.csv")
-    ap.add_argument("--brand", required=True, help="author_id of the brand, e.g. AmazonHelp")
+    brand_default = os.getenv("BRAND_HANDLE")
+    ap.add_argument("--brand", default=brand_default, required=brand_default is None,
+                     help="author_id of the brand, e.g. AmazonHelp (reads BRAND_HANDLE from .env if not set)")
     ap.add_argument("--sample", type=int, default=None,
                      help="Row-count subsample of the raw CSV before pairing (perf)")
     ap.add_argument("--keep-non-english", action="store_true",

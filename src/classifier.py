@@ -40,9 +40,11 @@ FEW_SHOT = [
     {"text": "you charged me twice for the same order, I want my money back", "label": "billing_refund"},
     {"text": "my package says delivered but it's not here", "label": "order_delivery"},
     {"text": "app has been down all morning, is this a known issue?", "label": "service_outage"},
+    {"text": "worst app I've ever used, so done with this company", "label": "feedback_negative"},
     {"text": "my driver crashed and I hit my head", "label": "safety_incident"},
     {"text": "this is the third time this has happened, absolutely unacceptable service",
      "label": "complaint_escalation"},
+
 ]
 
 
