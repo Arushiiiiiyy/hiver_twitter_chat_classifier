@@ -2,22 +2,25 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dotenv import load_dotenv
-
 from openai import OpenAI
 
 from intents import INTENTS
+from llm_utils import safe_chat_completion
 
 load_dotenv()
 
 _CLIENT = None
 
 
-def _client() -> OpenAI:
+def _client() -> OpenAI | None:
     global _CLIENT
+    if os.environ.get("LLM_PROVIDER", "").lower() == "local":
+        return None
     if _CLIENT is None:
         _CLIENT = OpenAI(
-            api_key=os.environ["LLM_API_KEY"],
+            api_key=os.environ.get("LLM_API_KEY", "dummy"),
             base_url=os.environ.get("LLM_BASE_URL"),
         )
     return _CLIENT
@@ -55,10 +58,13 @@ def classify(text: str, model: str | None = None) -> dict:
         {"role": "system", "content": SYSTEM_PROMPT + "\n\nExamples:\n" + examples_block},
         {"role": "user", "content": text},
     ]
-    resp = _client().chat.completions.create(model=model, messages=messages, temperature=0)
+    resp = safe_chat_completion(_client(), model=model, messages=messages, temperature=0)
     raw = resp.choices[0].message.content.strip()
+    clean = re.sub(r"^```json\s*", "", raw, flags=re.IGNORECASE)
+    clean = re.sub(r"^```\s*", "", clean)
+    clean = re.sub(r"```$", "", clean).strip()
     try:
-        parsed = json.loads(raw)
+        parsed = json.loads(clean)
     except json.JSONDecodeError:
         # Defensive fallback — log and mark low-confidence "other" rather than crash
         # a batch eval run over one bad JSON response.
