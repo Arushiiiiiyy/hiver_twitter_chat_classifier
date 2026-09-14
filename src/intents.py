@@ -38,10 +38,10 @@ _KEYWORDS: dict[str, list[str]] = {
     "product_defect": ["broken", "defective", "doesn't work", "not working", "bug", "glitch"],
     "order_delivery": ["delivery", "shipped", "shipping", "package", "tracking", "order"],
     "service_outage": ["down", "outage", "can't connect", "not loading", "offline"],
-    "complaint_escalation": ["unacceptable", "manager", "furious", "worst", "disgusted", "lawsuit"],
-    "feedback_praise": ["thank you", "thanks", "great job", "love", "awesome"],
     "feedback_negative": ["worst", "hate this", "so done", "never again", "ridiculous",
-                           "pathetic", "sick of"]
+                           "pathetic", "sick of"],
+    "complaint_escalation": ["unacceptable", "manager", "furious", "disgusted", "lawsuit"],
+    "feedback_praise": ["thank you", "thanks", "great job", "love", "awesome"],
 }
 
 
