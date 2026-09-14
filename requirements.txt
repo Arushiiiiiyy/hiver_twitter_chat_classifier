@@ -1,0 +1,13 @@
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+# Qwen3-Embedding/Reranker need recent versions — pip install -U if you hit
+# `KeyError: 'qwen3'` or the CrossEncoder constructor rejects the reranker model.
+transformers>=4.51.0
+sentence-transformers>=3.0
+torch>=2.1
+openai>=1.0
+tqdm>=4.65
+python-dotenv>=1.0
+# Note: no langdetect — dropped in favor of a script-based language filter
+# (see src/data_prep.py:is_probably_english and decision_log.md)
