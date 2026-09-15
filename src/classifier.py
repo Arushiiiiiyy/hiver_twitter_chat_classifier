@@ -97,7 +97,7 @@ def classify(text: str, model: str | None = None, reconsider_other: bool = True)
             "source": "safety_rule",
         }
 
-    model = model or os.environ.get("LLM_MODEL", "gemini-2.0-flash")
+    model = model or os.environ.get("LLM_MODEL", "gemini-3.6-flash")
     examples_block = "\n".join(f'- "{e["text"]}" -> {e["label"]}' for e in FEW_SHOT)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT + "\n\nExamples:\n" + examples_block},

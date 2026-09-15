@@ -24,7 +24,7 @@ reply at all.
 
 Reproduces the headline numbers in under 15 minutes on a subsample. Every command below is
 run from the repo root.
-
+(If you are using GPU, please run the same commands, configuring the environment might vary accordingly. Using a local GPU is recommended as free tier in Google might not be enough to run the code. Nevertheless, the results are also included in the repo, that can be accessed. pipeline need not be run for that again)
 ### 1. Install
 
 ```bash
@@ -100,7 +100,7 @@ belonging to the target brand, so a brand with lower volume does not vanish.
 
 `retrieval.py` picks `Qwen/Qwen3-Embedding-0.6B` when a GPU is visible and falls back to
 `all-MiniLM-L6-v2` on CPU automatically.
-
+(For python, please use the command python or python3 according to your system setup)
 ### 5. Run the agent over the golden set
 
 ```bash

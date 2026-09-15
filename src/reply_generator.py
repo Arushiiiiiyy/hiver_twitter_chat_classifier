@@ -56,7 +56,7 @@ def generate_reply(message: str, index: RetrievalIndex, k: int = 3,
     exclude_pair_id is passed through to drop the query's own pair from retrieval,
     which is required during evaluation to avoid leaking the ground-truth reply.
     """
-    model = model or os.environ.get("LLM_MODEL", "gemini-2.0-flash")
+    model = model or os.environ.get("LLM_MODEL", "gemini-3.6-flash")
 
     if use_reranker:
         candidates = index.query(message, k=retrieve_n, exclude_pair_id=exclude_pair_id)
