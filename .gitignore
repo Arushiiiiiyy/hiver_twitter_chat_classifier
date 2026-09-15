@@ -37,7 +37,6 @@ huggingface/
 *.pt
 
 # Evaluation outputs & logs
-eval/predictions.jsonl
 eval/predictions*.jsonl
 eval/report.json
 *.log
