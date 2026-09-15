@@ -49,7 +49,7 @@ cat > .env << 'EOF'
 LLM_PROVIDER=api
 LLM_API_KEY=your_google_ai_studio_key_here
 LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-LLM_MODEL=gemini-2.0-flash
+LLM_MODEL=gemini-3.6-flash
 BRAND_HANDLE=Uber_Support
 EOF
 ```
