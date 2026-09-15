@@ -6,8 +6,12 @@ import re
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from intents import INTENTS
-from llm_utils import safe_chat_completion
+try:
+    from intents import INTENTS
+    from llm_utils import safe_chat_completion
+except ImportError:
+    from src.intents import INTENTS
+    from src.llm_utils import safe_chat_completion
 
 load_dotenv()
 
@@ -72,3 +76,28 @@ def classify(text: str, model: str | None = None) -> dict:
     if parsed.get("intent") not in INTENTS:
         parsed["intent"] = "other"
     return parsed
+
+
+def classify_with_keyword_fallback(text: str, model: str | None = None) -> dict:
+    """Runs the trivial keyword baseline first; only calls the LLM when the keyword
+    baseline can't place the message at all. If the LLM also can't
+    confidently place it, it stays 'other'.
+    """
+    try:
+        from intents import keyword_baseline
+    except ImportError:
+        from src.intents import keyword_baseline
+
+    kw_result = keyword_baseline(text)
+    if kw_result != "other":
+        return {
+            "intent": kw_result,
+            "confidence": None,
+            "rationale": "keyword match",
+            "source": "keyword",
+        }
+
+    llm_result = classify(text, model=model)
+    llm_result["source"] = "llm_fallback"
+    return llm_result
+
