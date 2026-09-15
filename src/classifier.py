@@ -51,11 +51,19 @@ FEW_SHOT = [
     {"text": "my driver crashed and I hit my head", "label": "safety_incident"},
     {"text": "this is the third time this has happened, absolutely unacceptable service",
      "label": "complaint_escalation"},
+    {"text": "driver was threatening, I contacted police and emergency services", "label": "safety_incident"},
 
 ]
 
 
 def classify(text: str, model: str | None = None) -> dict:
+    lowered = text.lower()
+    if any(w in lowered for w in ["police", "emergency", "assault", "911", "ambulance"]):
+        return {
+            "intent": "safety_incident",
+            "confidence": 1.0,
+            "rationale": "safety emergency rule match",
+        }
     model = model or os.environ.get("LLM_MODEL", "gpt-4o-mini")
     examples_block = "\n".join(f'- "{e["text"]}" -> {e["label"]}' for e in FEW_SHOT)
     messages = [

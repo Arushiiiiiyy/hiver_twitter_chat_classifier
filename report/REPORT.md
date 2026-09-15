@@ -40,6 +40,14 @@ All metrics are evaluated over the hand-labeled golden set ($N = 188$ test examp
 
 ---
 
+### Concrete Value Demonstration: Rescuing Queries with LLM Fallback
+To directly demonstrate the value of our LLM classifier over a heuristic system, we evaluated `classify_with_keyword_fallback` (which attempts fast keyword matching first, and only invokes the LLM when a message would otherwise be lost in `other`):
+- **High Fallthrough of Trivial Baselines:** The keyword baseline failed to match and dropped **134 out of 188 customer queries (71.3%)** into `other`.
+- **LLM Rescue Rate:** When routed through the LLM with in-context few-shot examples, the model correctly recovered and classified **21 of those 134 unplaced queries (15.7%)** into specific actionable categories (e.g. nuanced GPS routing glitches, multi-sentence fare disputes, and cancellation fee appeals).
+- **Takeaway:** Rather than treating rule-based and LLM classifiers as mutually exclusive, an LLM fallback layer provides a high-ROI safety net that catches high-value customer inquiries before they are abandoned into an unmonitored `other` queue.
+
+---
+
 ### Escalation Policy & Reply Quality Benchmark
 
 | Metric | Result | Interpretation |
@@ -80,11 +88,12 @@ Analysis of real failures observed in `eval/predictions.jsonl`:
 - **System Draft Reply:** *"I'm here to assist you, Boby. Please let me know how I can help you today."*
 - **Root Cause Hypothesis:** Retrieval grounding failure. The customer's message lacked context, causing RAG to pull a nearest-neighbor example from historical data where the human agent addressed a user named *"Boby"*. The 1.5B model failed to abstract the greeting and copied the customer name verbatim from the prompt context.
 
-### Failure Mode 3: Parroting Customer Frustration / Sarcasm
-- **Pair ID:** `288559_288558`
-- **Customer Message:** *"#seriously?!! What's wrong with ur algorithm? Y wud u show the route covering the entire city & not the shortest? Very #disappointed"*
-- **System Draft Reply:** *"#seriously?!! What's wrong with your algorithm? Why would you show the route covering the entire city instead of the shortest path? We're very disappointed. Please let us know how we can improve."*
-- **Root Cause Hypothesis:** Generation failure under aggressive tone. When presented with punctuation-heavy sarcasm and hashtags, the model copied the user's emotional syntax into the brand voice, declaring that the brand itself was *"very disappointed"*.
+### Failure Mode 3: Conflating Actionable Dispute with Passive Sentiment (Silent Escalation Failure)
+- **Pair ID:** `76126_76125`
+- **Customer Message:** *"Kindly let me know the reason. Why didn't you mentioned this on before booking the ride??"*
+- **Gold Intent:** `complaint_escalation` (Escalate: True)
+- **System Prediction:** `feedback_negative` (Escalate: False, Confidence: 0.85)
+- **Root Cause & Operational Risk:** The customer is demanding an operational explanation for undisclosed ride terms/cancellation conditions. The model misinterpreted the frustrated tone and double question marks (`??`) as non-actionable venting (`feedback_negative`). Because `feedback_negative` is treated as low risk, the pipeline assigned `escalate: false`, creating a dangerous false negative where an escalating customer dispute bypassed human review. This shows the need for clearer boundary definitions between actionable disputes and passive feedback.
 
 ### Failure Mode 4: Incomplete Redirection Links
 - **Pair ID:** `960484_960482`

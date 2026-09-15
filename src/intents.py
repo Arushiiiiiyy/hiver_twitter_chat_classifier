@@ -34,7 +34,7 @@ _KEYWORDS: dict[str, list[str]] = {
     # Reorder or adjust per-brand — this is exactly the kind of taxonomy detail that
     # needs eyeballing on real data, not a one-size-fits-all default.
     "safety_incident": ["assault", "accident", "unsafe", "harass", "police", "injur", "threat",
-                         "crashed", "sexually"],
+                         "crashed", "sexually", "emergency"],
     "product_defect": ["broken", "defective", "doesn't work", "not working", "bug", "glitch"],
     "order_delivery": ["delivery", "shipped", "shipping", "package", "tracking", "order"],
     "service_outage": ["down", "outage", "can't connect", "not loading", "offline"],
