@@ -7,146 +7,125 @@ The pipeline classifies an incoming message into an intent, drafts a reply groun
 Uber has historically resolved similar issues, and decides whether to auto-handle or
 escalate to a human with a stated reason.
 
-- Evaluation results and analysis: [`report.pdf`](report.pdf)
+- Full analysis and failure modes: [`report.pdf`](report.pdf)
 - Decisions and why they were made: [`decision_log.md`](decision_log.md)
 - Golden set sampling and labelling note: [`eval/golden_set_schema.md`](eval/golden_set_schema.md)
 
-## Why Uber_Support
+## Results
 
-Uber has 56,307 brand replies in this dataset, enough history for retrieval grounding to
-have something real to draw on. It also has a property most brands here do not: a
-safety-critical tail. Around 2% of inbound messages reference collisions, harassment or
-police involvement. That forces the escalation policy to be an actual policy rather than a
-confidence threshold, and it is the reason `safety_incident` never gets an AI-drafted
-reply at all.
+Measured on 188 hand-labelled examples in `eval/golden_set.jsonl`.
 
-## Quickstart
+**Intent classification**
 
-Reproduces the headline numbers on a subsample. Every command is run from the repo root.
+| System | Accuracy | Macro-F1 |
+|---|---|---|
+| Few-shot LLM classifier (this system) | 36.2% | 0.316 |
+| Baseline 2 — TF-IDF + LogReg, held-out | 35.1% | 0.206 |
+| Baseline 1 — keyword matching (trivial) | 24.5% | 0.236 |
 
-Commands are given for macOS, Ubuntu and Windows. Where only one block is shown, it is
-identical on all three.
+**Escalation decision** — 59.6% accuracy, Cohen's κ 0.191 against human labels.
 
-> **No API key, or hit a rate limit?** `eval/predictions.jsonl` is committed. You can skip
-> steps 6 and 7 entirely and run step 8 against it. Google's free tier allows 20 requests
-> per day for `gemini-3.6-flash`, which is not enough to regenerate all 188 predictions.
-> A local GPU or a paid key is needed for a full end-to-end rerun.
+**Reply quality** — LLM judge mean 2.99 / 5 across 179 drafted replies, 0 unparseable.
 
-### 0. Prerequisites
+**Judge trustworthiness** — against 30 replies scored by hand: 66.7% exact agreement,
+100% within one point, Cohen's κ 0.513.
 
-Python 3.10 to 3.14, `git`, about 3 GB of free disk for dependencies and models, plus
-500 MB for the dataset.
+On accuracy the system is barely ahead of the TF-IDF baseline. The macro-F1 gap is the
+more meaningful one, and the TF-IDF number comes from a 70/30 split of 188 examples, so
+it is directional rather than a firm claim. `report.pdf` covers what these numbers hide,
+including a mandatory section on what is misleading about the headline figure.
 
-**macOS**
+## Reproduce the results (under 15 minutes, no API key, no dataset download)
 
-```bash
-brew install python@3.12 git
-```
-
-Or use the installer from [python.org](https://www.python.org/downloads/). Xcode command
-line tools (`xcode-select --install`) are needed if `git` is not already present.
-
-**Ubuntu**
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip git
-```
-
-`python3-venv` is a separate package on Debian and Ubuntu. Without it, `python3 -m venv`
-fails with `ensurepip is not available`.
-
-**Windows**
-
-Install Python from [python.org](https://www.python.org/downloads/) and tick
-**"Add python.exe to PATH"** during setup. Install
-[Git for Windows](https://git-scm.com/download/win). The commands below assume
-**PowerShell**; `cmd.exe` variants are noted where they differ.
-
-### 1. Clone
+Every number in the table above is recomputed from committed artifacts. No Kaggle
+download, no GPU, no API quota.
 
 ```bash
 git clone <repo-url>
 cd hiver_twitter_chat_classifier
-```
 
-### 2. Create and activate a virtual environment
-
-**macOS and Ubuntu**
-
-```bash
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate          # Windows PowerShell: venv\Scripts\Activate.ps1
+
+pip install -r requirements.txt
+pip install -e .
+
+python eval/run_eval.py \
+    --golden eval/golden_set.jsonl \
+    --predictions eval/predictions.jsonl \
+    --skip-judge \
+    --out /tmp/verify_report.json
+
+python scripts/report_numbers.py
 ```
 
-**Windows (PowerShell)**
+The install is about 25 seconds — the eval path needs only numpy, scikit-learn, openai and
+python-dotenv. PyTorch and sentence-transformers are in the optional `full` extra, needed
+only to rebuild the index from raw data.
 
-```powershell
-py -m venv venv
-venv\Scripts\Activate.ps1
-```
+`--skip-judge` skips LLM-judge reply scoring, which costs one API call per reply. Every
+other metric — intent accuracy, macro-F1, escalation agreement, Cohen's κ, judge-vs-human
+agreement — is recomputed from scratch. The judge numbers are in the committed
+`eval/report.json`, produced by a full run with API access.
 
-If PowerShell refuses with an execution policy error, allow it for this session only:
+Drop `--skip-judge` if you have a key with quota and want to regenerate the judge scores
+too. Note that Google's free tier allows 20 requests per day for `gemini-3.6-flash`, which
+is not enough for the ~179 calls this makes.
 
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
+<details>
+<summary>Per-platform setup details</summary>
 
-**Windows (cmd.exe)**
+**macOS** — `brew install python@3.12 git`, or the installer from
+[python.org](https://www.python.org/downloads/).
 
-```bat
-py -m venv venv
-venv\Scripts\activate.bat
-```
+**Ubuntu** — `sudo apt update && sudo apt install -y python3 python3-venv python3-pip git`.
+`python3-venv` is a separate package; without it `python3 -m venv` fails with
+`ensurepip is not available`.
 
-Your prompt should now start with `(venv)`. Confirm the interpreter is the one inside the
-project, not a system-wide Python:
+**Windows** — install Python from [python.org](https://www.python.org/downloads/) with
+**"Add python.exe to PATH"** ticked, plus
+[Git for Windows](https://git-scm.com/download/win). Activate with
+`venv\Scripts\Activate.ps1` in PowerShell or `venv\Scripts\activate.bat` in `cmd.exe`. If
+PowerShell blocks activation, run
+`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` first.
+
+Confirm the right interpreter is active before continuing:
 
 ```bash
 python -c "import sys; print(sys.executable)"
 ```
 
-The path printed must contain your project folder. Every remaining step assumes this venv
-is active. If you open a new terminal, activate it again.
+The printed path must be inside your project folder.
+</details>
 
-### 3. Install dependencies
+## Rebuilding from raw data (optional, much slower)
+
+Needed only to regenerate `pairs.jsonl`, the retrieval index and `predictions.jsonl`. This
+requires the 493 MB dataset and either a paid API key or a local GPU. Budget an hour, not
+15 minutes.
+
+### 1. Install the full dependency set
 
 ```bash
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-pip install -e .
+pip install -e ".[full]"
 ```
 
-`pip install -e .` installs the `hiver_agent` package in editable mode. Without it,
-`python -m hiver_agent.pipeline` and the imports in `eval/` will fail with
-`ModuleNotFoundError`.
-
-The bulk of the download is PyTorch. On Linux, the default wheel bundles CUDA and is
-roughly 800 MB; if you have no NVIDIA GPU, install the CPU-only build first and the rest
-afterwards:
+Adds pandas, torch, transformers and sentence-transformers. On Linux without an NVIDIA
+GPU, install the CPU-only torch build first to avoid an 800 MB CUDA download:
 
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
-pip install -e .
+pip install -e ".[full]"
 ```
 
-Verify the install:
-
-```bash
-python -c "import hiver_agent, torch, sentence_transformers; print('setup ok')"
-```
-
-### 4. Configure the LLM
+### 2. Configure the LLM
 
 This project uses a **Google AI Studio** key. Google exposes an OpenAI-compatible
 endpoint, so the standard `openai` SDK is used, pointed at Google's base URL. No
 Google-specific client library is needed.
 
-Get a free key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey), then
-create a `.env` file in the repo root.
-
-**macOS and Ubuntu**
+Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey), then create
+`.env` in the repo root:
 
 ```bash
 cat > .env << 'EOF'
@@ -158,7 +137,8 @@ BRAND_HANDLE=Uber_Support
 EOF
 ```
 
-**Windows (PowerShell)**
+On Windows PowerShell, use a here-string instead — `@'` and `'@` must each sit alone at
+the start of their line:
 
 ```powershell
 @'
@@ -169,9 +149,6 @@ LLM_MODEL=gemini-3.6-flash
 BRAND_HANDLE=Uber_Support
 '@ | Set-Content -Path .env -Encoding utf8
 ```
-
-The `@'` and `'@` markers must each sit alone at the very start of their line, with no
-leading spaces, or PowerShell will not recognise the here-string.
 
 Every script loads `.env` automatically via `python-dotenv`. `.env` is gitignored.
 
@@ -186,66 +163,57 @@ BRAND_HANDLE=Uber_Support
 EOF
 ```
 
-`src/hiver_agent/llm_utils.py` loads the model through Hugging Face `transformers`. It
-uses float16 on CUDA and float32 on CPU. This avoids API quotas entirely, but downloads
+`src/hiver_agent/llm_utils.py` loads the model through Hugging Face `transformers`, using
+float16 on CUDA and float32 on CPU. This sidesteps API quotas entirely, but downloads
 roughly 3 GB of weights on first run and is 5 to 10 times slower on CPU.
 </details>
 
-### 5. Get the data
+### 3. Get the data
 
-`twcs.csv` is 493 MB and is not in this repo. Download it from the
+Download `twcs.csv` (493 MB) from the
 [Kaggle dataset](https://www.kaggle.com/datasets/thoughtvector/customer-support-on-twitter)
 and place it at `data/raw/twcs.csv`.
-
-**macOS and Ubuntu**
 
 ```bash
 mkdir -p data/raw
 python scripts/list_brands.py data/raw/twcs.csv | head -20
 ```
 
-**Windows (PowerShell)**
+`Uber_Support` should appear in the list. On Windows PowerShell, use
+`New-Item -ItemType Directory -Force -Path data\raw` and `Select-Object -First 20`.
 
-```powershell
-New-Item -ItemType Directory -Force -Path data\raw
-python scripts\list_brands.py data\raw\twcs.csv | Select-Object -First 20
-```
-
-`Uber_Support` should appear in the list.
-
-### 6. Build the pairs and the retrieval index
+### 4. Build the pairs and the retrieval index
 
 ```bash
 python -m hiver_agent.data_prep --brand Uber_Support --sample 30000 --out data/processed/pairs.jsonl
 python -m hiver_agent.retrieval build --pairs data/processed/pairs.jsonl --index data/processed/index.pkl
 ```
 
-These work unchanged on Windows; forward slashes in the argument values are handled by
-Python's `pathlib`.
+`--sample 30000` subsamples the raw CSV before pairing, keeping all rows belonging to the
+target brand so a lower-volume brand does not vanish.
 
-`--sample 30000` subsamples the raw CSV before pairing. The subsample keeps all rows
-belonging to the target brand, so a brand with lower volume does not vanish.
+**The embedding model depends on your hardware.** `retrieval.py` picks
+`Qwen/Qwen3-Embedding-0.6B` when a GPU is visible and falls back to `all-MiniLM-L6-v2` on
+CPU. The committed results were produced with the CPU fallback, so rebuilding on a GPU
+gives a different index and different numbers. Pass `--model-name all-MiniLM-L6-v2`
+explicitly to match.
 
-`retrieval.py` picks `Qwen/Qwen3-Embedding-0.6B` when a GPU is visible and falls back to
-`all-MiniLM-L6-v2` on CPU automatically.
+### 5. Run the agent over the golden set
 
-### 7. Run the agent over the golden set
-
-This step makes one API call per example. See the rate-limit note at the top before
-starting.
+One API call per example, 188 total.
 
 ```bash
 python -m hiver_agent.pipeline --golden eval/golden_set.jsonl --index data/processed/index.pkl --out eval/predictions.jsonl --no-rerank
 ```
 
-Written on one line so it works in every shell. On macOS and Ubuntu you can split it
-across lines with a trailing `\`; in PowerShell use a trailing backtick `` ` `` instead.
+Written on one line so it works in every shell. On macOS and Ubuntu you can split it with
+a trailing `\`; in PowerShell use a trailing backtick `` ` ``.
+
+The run is resumable — including after a quota limit. Rerun the same command and it
+continues where it left off.
 
 Drop `--no-rerank` to enable the Qwen3 cross-encoder reranker. It improves retrieval
 ordering but is slow on CPU.
-
-The run is resumable. If it stops partway — including when it hits a quota limit — rerun
-the same command and it continues from where it left off.
 
 Each row's own pair is excluded from its retrieval results. Golden-set messages are also
 in the index, so without that exclusion the top hit is the message itself at similarity
@@ -253,21 +221,14 @@ in the index, so without that exclusion the top hit is the message itself at sim
 `--allow-self-retrieval` disables the exclusion, but only for deliberately measuring that
 leak.
 
-### 8. Evaluate
+### 6. Re-evaluate
 
 ```bash
 python eval/run_eval.py --golden eval/golden_set.jsonl --predictions eval/predictions.jsonl --out eval/report.json
 ```
 
-Prints and writes: intent accuracy and macro-F1 for the system and both baselines,
-escalation accuracy and Cohen's kappa, LLM-judge reply scores, and judge-vs-human
-agreement measured against the 30 replies hand-scored in `eval/human_judge_check.jsonl`.
-
-To print every number cited in the report straight from the artifacts:
-
-```bash
-python scripts/report_numbers.py
-```
+Without `--skip-judge` this also regenerates LLM-judge reply scores, roughly 179
+additional API calls.
 
 ### Rebuilding the golden set from scratch (optional)
 
@@ -279,21 +240,29 @@ python scripts/sample_for_labeling.py --pairs data/processed/pairs.jsonl --n 200
 
 Labels then have to be filled in by hand. See `eval/golden_set_schema.md`.
 
-### Troubleshooting
+## Why Uber_Support
+
+Uber has 56,307 brand replies in this dataset, enough history for retrieval grounding to
+have something real to draw on. It also has a property most brands here do not: a
+safety-critical tail. Around 2% of inbound messages reference collisions, harassment or
+police involvement. That forces the escalation policy to be an actual policy rather than a
+confidence threshold, and it is the reason `safety_incident` never gets an AI-drafted
+reply at all.
+
+## Troubleshooting
 
 **`ModuleNotFoundError: No module named 'hiver_agent'`** — the editable install did not
 run, or you are in a different environment than the one you installed into. Reactivate the
 venv and rerun `pip install -e .`.
 
-**`ensurepip is not available` on Ubuntu** — install `python3-venv`, then delete the
-half-created `venv/` folder and create it again.
+**`ensurepip is not available` on Ubuntu** — install `python3-venv`, delete the
+half-created `venv/` folder, and create it again.
 
-**`running scripts is disabled on this system` on Windows** — the execution policy fix in
-step 2.
+**`running scripts is disabled on this system` on Windows** — see the execution policy
+note in the setup details above.
 
-**`RESOURCE_EXHAUSTED` / HTTP 429** — Google free-tier daily quota. Wait for the reset,
-switch `LLM_MODEL` to a different Gemini model for a separate quota bucket, or use the
-committed `eval/predictions.jsonl` and skip to step 8.
+**`RESOURCE_EXHAUSTED` / HTTP 429** — Google free-tier daily quota. Use `--skip-judge`, or
+switch `LLM_MODEL` to a different Gemini model for a separate quota bucket.
 
 **Editor shows unresolved imports but the code runs** — point your editor at
 `venv/bin/python` (`venv\Scripts\python.exe` on Windows) rather than a system Python.
@@ -308,6 +277,7 @@ On a shared cluster, point the Hugging Face cache at scratch to avoid home quota
 
 ```bash
 export HF_HOME=/scratch/$USER/huggingface
+export PIP_CACHE_DIR=/scratch/$USER/pip
 ```
 
 ## Repo layout
@@ -333,16 +303,17 @@ eval/
   metrics.py                 accuracy, macro-F1, Cohen's kappa
   llm_judge.py               4-dimension reply quality rubric
   run_eval.py                evaluation entrypoint
-  predictions.jsonl          generated by pipeline.py
-  report.json                generated by run_eval.py
-  stale_pre_fix/             superseded predictions and metrics, kept for comparison
+  predictions.jsonl          committed, so the eval runs without an API key
+  report.json                committed headline metrics
+  stale_pre_fix/             superseded results from before the self-retrieval fix
 scripts/
   list_brands.py             list brand handles by volume
   sample_for_labeling.py     stratified sampler for the golden set
   report_numbers.py          prints every number cited in the report
-pyproject.toml               package metadata, makes hiver_agent importable
-pyrefly.toml                 type-checker config (search paths, interpreter)
-requirements.txt             pinned runtime dependencies
+pyproject.toml               package metadata and dependency extras
+pyrefly.toml                 type-checker config
+requirements.txt             eval-path dependencies (light)
+requirements-full.txt        rebuild dependencies (torch, transformers, pandas)
 report.pdf
 decision_log.md
 ```

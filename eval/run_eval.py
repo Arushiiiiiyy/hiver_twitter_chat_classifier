@@ -33,6 +33,10 @@ def main() -> None:
     ap.add_argument("--golden", required=True)
     ap.add_argument("--predictions", required=True)
     ap.add_argument("--human-judge-check", default="eval/human_judge_check.jsonl")
+    ap.add_argument("--skip-judge", action="store_true",
+                    help="Recompute every metric except LLM-judge reply quality, which "
+                         "needs one API call per reply. Lets the harness run with no API "
+                         "key or quota; judge numbers stay in the committed report.json.")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -73,21 +77,28 @@ def main() -> None:
         "escalation_agreement": escalation_agreement(gold_escalate, sys_escalate),
     }
 
-    # LLM-judge reply quality (only over examples where a reply exists)
-    judge_scores = []
-    for pid in common_ids:
-        reply = preds[pid].get("reply")
-        if not reply:
-            continue
-        score = judge_reply(golden[pid]["customer_text"], reply)
-        judge_scores.append(score.get("overall"))
-    valid_scores = [s for s in judge_scores if s is not None]
-    if valid_scores:
+    # LLM-judge reply quality (only over examples where a reply exists).
+    # One API call per reply, so --skip-judge exists for reviewers without quota.
+    if args.skip_judge:
         report["reply_quality_llm_judge"] = {
-            "mean_overall_score": sum(valid_scores) / len(valid_scores),
-            "n_scored": len(valid_scores),
-            "n_unparseable": len(judge_scores) - len(valid_scores),
+            "note": "skipped via --skip-judge; see the committed eval/report.json for "
+                    "these numbers, produced by a full run with API access."
         }
+    else:
+        judge_scores = []
+        for pid in common_ids:
+            reply = preds[pid].get("reply")
+            if not reply:
+                continue
+            score = judge_reply(golden[pid]["customer_text"], reply)
+            judge_scores.append(score.get("overall"))
+        valid_scores = [s for s in judge_scores if s is not None]
+        if valid_scores:
+            report["reply_quality_llm_judge"] = {
+                "mean_overall_score": sum(valid_scores) / len(valid_scores),
+                "n_scored": len(valid_scores),
+                "n_unparseable": len(judge_scores) - len(valid_scores),
+            }
 
     # Judge-vs-human agreement, if the human check file exists
     check_path = Path(args.human_judge_check)
