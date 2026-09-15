@@ -1,14 +1,15 @@
 # Hiver SDE Intern — AI Support Agent
 
-Builds an AI customer-support agent for **one brand** from the [Customer Support on
+Built an AI customer-support agent for Uber from the [Customer Support on
 Twitter](https://www.kaggle.com/datasets/thoughtvector/customer-support-on-twitter) dataset.
 Pipeline: intent classification → grounded reply drafting (RAG over the brand's own
 historical resolutions) → escalate-or-auto-handle decision with a stated reason.
 
 ## 0. Why this brand / why these choices
 
-See `decision_log.md` and `report/REPORT.md` — don't skip these, they're where the actual
-grading happens.
+Uber is a large brand providing users with daily commute options. It has a huge database. Hence it is important for the company to use AI as a helping hand to reply to their customers efficiently, at the same time making sure that proper queries are escalated to humans in time. Hence building a chatbot helps in quickly resolving the queries of the customers and saves the time of the employees to focus on more important and critical queries.
+
+
 
 ## 1. Setup (~2 min)
 
@@ -30,23 +31,9 @@ export LLM_MODEL=gpt-4o-mini       # cheap model is fine, this isn't the bottlen
 3. Pick a brand handle present in the data (check with
    `python scripts/list_brands.py data/raw/twcs.csv | head -20`) and set it:
    ```bash
-   export BRAND_HANDLE=AmazonHelp   # example — swap for your chosen brand
+   export BRAND_HANDLE=Uber_Support
    ```
 
-We deliberately don't hardcode the brand — pick one with enough volume (>5k inbound
-tweets) so retrieval has something to work with. Top handles by reply volume in the
-real dataset, for reference: `AmazonHelp` (169.8k), `AppleSupport` (106.9k),
-`Uber_Support` (56.3k), `SpotifyCares` (43.3k), `Delta` (42.3k), `Tesco` (38.6k),
-`AmericanAir` (36.8k), `TMobileHelp` (34.3k), `comcastcares` (33.0k). Any of these give
-you enough volume; smaller/more niche brands are also fine for a subsample but leave
-less data for retrieval grounding.
-
-**If using `Uber_Support`**: the taxonomy already includes a `safety_incident` intent
-(accidents, harassment, police involvement — ~1.9% of real Uber_Support messages) that
-is always escalated and never gets an AI-drafted reply at all (`pipeline.py` skips
-`generate_reply` entirely for it — see `decision_log.md` #15). No agent-signature
-suffixes were found on Uber_Support replies, so `AGENT_SIGNATURE_RE` is a harmless
-no-op for this brand.
 
 **Hardware**: retrieval uses Qwen3-Embedding-0.6B + Qwen3-Reranker-0.6B (see
 `decision_log.md` #18) — both 0.6B models, ~1.2GB each in fp16, ~2.5GB VRAM combined.
@@ -108,10 +95,17 @@ src/
   reply_generator.py   RAG reply drafting
   escalation.py         escalation policy + reason string
   pipeline.py           orchestrates the above, CLI entrypoint
+  llm_utils.py        LLM utilities for local model usage
+  reranker.py   
 eval/
   golden_set_schema.md
   golden_set.example.jsonl   (5 illustrative examples, NOT part of your 150-250)
+  golden_set_unlabeled.jsonl
+  golden_set.jsonl
+  human_judge_check.jsonl
   metrics.py
+  predictions.py (after running the pipeline)
+  report.json
   llm_judge.py
   run_eval.py
 scripts/
@@ -120,13 +114,3 @@ scripts/
 report/REPORT.md
 decision_log.md
 ```
-
-## What's NOT built for you
-
-- **The golden set.** Tooling samples it; you label it. This is intentional per the
-  assignment brief and also the only way you'll have real failure examples to write
-  about.
-- **The brand choice.** Pick one you find interesting or that has clean data.
-- **The report content.** Skeleton is in `report/REPORT.md` with the required sections;
-  the actual analysis (failure modes, "what's misleading about my number") has to come
-  from your own eval run.
