@@ -7,14 +7,11 @@ from __future__ import annotations
 
 import json
 import os
-import sys
-from pathlib import Path
 from dotenv import load_dotenv
 
 from openai import OpenAI
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from llm_utils import safe_chat_completion
+from hiver_agent.llm_utils import safe_chat_completion
 
 load_dotenv()
 

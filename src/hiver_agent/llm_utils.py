@@ -25,8 +25,8 @@ class ChatCompletionResult:
         self.choices = [Choice(Message(content))]
 
 
-_LOCAL_MODEL = None
-_LOCAL_TOKENIZER = None
+_LOCAL_MODEL: Any = None
+_LOCAL_TOKENIZER: Any = None
 
 
 def get_local_model(model_name: str = "Qwen/Qwen2.5-1.5B-Instruct"):

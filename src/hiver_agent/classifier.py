@@ -9,12 +9,8 @@ import re
 from dotenv import load_dotenv
 from openai import OpenAI
 
-try:
-    from intents import INTENTS
-    from llm_utils import safe_chat_completion
-except ImportError:
-    from src.intents import INTENTS
-    from src.llm_utils import safe_chat_completion
+from .intents import INTENTS
+from .llm_utils import safe_chat_completion
 
 load_dotenv()
 
@@ -127,10 +123,7 @@ def classify(text: str, model: str | None = None, reconsider_other: bool = True)
 def classify_with_keyword_fallback(text: str, model: str | None = None) -> dict:
     """Keyword baseline first, LLM only when the keyword pass cannot place the message.
     Used in the report to measure how many queries the LLM layer rescues from 'other'."""
-    try:
-        from intents import keyword_baseline
-    except ImportError:
-        from src.intents import keyword_baseline
+    from .intents import keyword_baseline
 
     kw_result = keyword_baseline(text)
     if kw_result != "other":

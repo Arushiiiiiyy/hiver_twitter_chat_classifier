@@ -7,18 +7,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm
 
-# Keep src/ importable regardless of the working directory the script is run from.
-sys.path.insert(0, str(Path(__file__).parent))
-
-from classifier import classify
-from escalation import decide, NEVER_AUTO_DRAFT_INTENTS
-from reply_generator import generate_reply
-from retrieval import RetrievalIndex
+from .classifier import classify
+from .escalation import decide, NEVER_AUTO_DRAFT_INTENTS
+from .reply_generator import generate_reply
+from .retrieval import RetrievalIndex
 
 load_dotenv()
 

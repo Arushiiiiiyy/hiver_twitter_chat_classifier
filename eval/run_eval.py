@@ -11,17 +11,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
+from hiver_agent.intents import keyword_baseline, TfidfLogRegBaseline
+
+# Siblings in eval/ -- resolved because Python puts the script's own directory on
+# sys.path. Kept here rather than in the package so the whole harness lives in eval/.
+from metrics import escalation_agreement, intent_accuracy, judge_human_agreement
+from llm_judge import judge_reply
+
 load_dotenv()
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from intents import keyword_baseline, TfidfLogRegBaseline  # noqa: E402
-from metrics import escalation_agreement, intent_accuracy, judge_human_agreement  # noqa: E402
-from llm_judge import judge_reply  # noqa: E402
 
 
 def load_jsonl(path: str) -> list[dict]:

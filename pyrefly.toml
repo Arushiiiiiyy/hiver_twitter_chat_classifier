@@ -1,0 +1,3 @@
+project-includes = ["src", "eval", "scripts"]
+search-path = ["eval"]
+python-interpreter-path = "venv/bin/python"

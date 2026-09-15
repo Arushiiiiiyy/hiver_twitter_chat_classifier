@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hiver-support-agent"
+version = "0.1.0"
+description = "AI customer-support agent for a single Twitter brand handle"
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+# requirements.txt stays the single source of truth for pinned deps, so
+# `pip install -r requirements.txt` and `pip install -e .` can never drift.
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["src"]

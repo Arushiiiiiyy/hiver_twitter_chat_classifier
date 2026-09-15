@@ -7,14 +7,9 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
-try:
-    from llm_utils import safe_chat_completion
-    from reranker import rerank as rerank_candidates
-    from retrieval import RetrievalIndex
-except ImportError:
-    from src.llm_utils import safe_chat_completion
-    from src.reranker import rerank as rerank_candidates
-    from src.retrieval import RetrievalIndex
+from .llm_utils import safe_chat_completion
+from .reranker import rerank as rerank_candidates
+from .retrieval import RetrievalIndex
 
 load_dotenv()
 
