@@ -1,11 +1,4 @@
-"""Intent taxonomy for Uber_Support, plus the two baselines the LLM system is
-compared against.
 
-The taxonomy was derived from reading sampled Uber_Support threads, not taken from a
-generic support ontology. safety_incident exists because roughly 2% of real messages
-reference collisions, harassment or police involvement, and those need different
-handling from ordinary complaints.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,10 +16,7 @@ INTENTS = [
     "other",                 # catch-all, should stay a small share of traffic
 ]
 
-# --- Baseline 1 (trivial): keyword matching -------------------------------------
-# Order matters: the first matching intent wins. safety_incident is checked before
-# product_defect because "crashed" means a collision far more often than an app crash
-# for a rideshare brand.
+
 _KEYWORDS: dict[str, list[str]] = {
     "account_access": ["password", "login", "log in", "locked out", "can't sign in", "2fa"],
     "billing_refund": ["refund", "charged", "charge", "billing", "payment", "money back",

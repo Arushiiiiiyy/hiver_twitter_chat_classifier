@@ -1,9 +1,4 @@
-"""Embedding index over past resolved pairs. Used to ground reply drafting in how
-Uber_Support actually handled similar issues, rather than generic model knowledge.
 
-Qwen3-Embedding is instruction-aware: the incoming query gets the built-in "query"
-prompt, indexed documents do not. Encoding both the same way hurts retrieval quality.
-"""
 from __future__ import annotations
 
 import argparse
@@ -32,12 +27,7 @@ class RetrievalIndex:
         return self._model
 
     def query(self, text: str, k: int = 3, exclude_pair_id: str | None = None) -> list[dict]:
-        """exclude_pair_id drops that pair from the results before ranking.
-
-        This matters for evaluation. Golden-set messages are also in the index, so
-        without it the top hit is the query itself at similarity 1.0 and the generator
-        gets shown the ground-truth reply it is supposed to be producing.
-        """
+        
         model = self._get_model()
         # Qwen3 models define a "query" prompt; models that don't will raise, so fall back.
         try:

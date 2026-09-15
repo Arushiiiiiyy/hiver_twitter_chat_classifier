@@ -1,8 +1,3 @@
-"""End-to-end pipeline: classify intent, retrieve grounding examples, draft a reply,
-then decide auto-handle vs escalate.
-
-Run against the golden set for evaluation, or against arbitrary input for a demo.
-"""
 from __future__ import annotations
 
 import argparse

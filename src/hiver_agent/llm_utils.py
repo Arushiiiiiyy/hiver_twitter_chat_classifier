@@ -86,10 +86,7 @@ def local_chat_completion(
 
 
 def safe_chat_completion(client, **kwargs):
-    """Wrapper around client.chat.completions.create with automatic retry
-    and backoff when hitting API rate limits.
-    If LLM_PROVIDER is 'local' or model starts with 'Qwen/', runs locally via GPU.
-    """
+    
     provider = os.environ.get("LLM_PROVIDER", "").lower()
     model_name = kwargs.get("model", "")
     if provider == "local" or model_name.startswith("Qwen/") or model_name.startswith("local:"):

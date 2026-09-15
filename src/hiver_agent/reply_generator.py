@@ -1,6 +1,4 @@
-"""Draft a reply grounded in how the brand historically resolved similar issues,
-using the retrieval index built by retrieval.py.
-"""
+
 from __future__ import annotations
 
 import os
@@ -45,12 +43,7 @@ Reply:"""
 def generate_reply(message: str, index: RetrievalIndex, k: int = 3,
                    model: str | None = None, use_reranker: bool = True,
                    retrieve_n: int = 20, exclude_pair_id: str | None = None) -> dict:
-    """Two-stage retrieval when use_reranker=True: embedding search pulls retrieve_n
-    candidates, the cross-encoder reranks them and keeps the top k for the prompt.
-
-    exclude_pair_id is passed through to drop the query's own pair from retrieval,
-    which is required during evaluation to avoid leaking the ground-truth reply.
-    """
+    
     model = model or os.environ.get("LLM_MODEL", "gemini-3.6-flash")
 
     if use_reranker:

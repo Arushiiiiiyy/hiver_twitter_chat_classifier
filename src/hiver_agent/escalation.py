@@ -1,9 +1,4 @@
-"""Decide auto-handle vs escalate-to-human, with a stated reason.
 
-A small rule table over three signals rather than another learned model. For a
-decision that carries real cost, an auditable rule set is easier to defend and debug
-than an opaque classifier.
-"""
 from __future__ import annotations
 
 HIGH_RISK_INTENTS = {"billing_refund", "complaint_escalation", "account_access", "safety_incident"}

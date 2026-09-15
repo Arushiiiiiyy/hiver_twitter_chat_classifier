@@ -1,6 +1,3 @@
-"""Few-shot LLM intent classifier. This is the system the two baselines in intents.py
-are compared against.
-"""
 from __future__ import annotations
 
 import json
@@ -16,8 +13,7 @@ load_dotenv()
 
 _CLIENT = None
 
-# Hard rule ahead of the LLM. If a message names an emergency explicitly we route it
-# without waiting on a model call that could return something softer.
+
 _SAFETY_TRIGGERS = ["police", "emergency", "assault", "911", "ambulance"]
 
 
@@ -41,8 +37,7 @@ Respond ONLY with JSON, no markdown fences, no preamble:
 
 If nothing fits well, use "other" with a low confidence rather than forcing a fit."""
 
-# Second-pass prompt, only used when the first pass returns "other". Keeps the
-# catch-all bucket from absorbing messages that do have a usable category.
+
 RECONSIDER_PROMPT = f"""That message was tentatively marked "other". Look again before
 that is final. A message does not need to match a category perfectly to be better
 served by it than by "other". Reconsider against: {INTENTS}.
