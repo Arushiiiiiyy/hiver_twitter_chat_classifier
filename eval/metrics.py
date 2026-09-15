@@ -22,7 +22,7 @@ def escalation_agreement(gold: list[bool], pred: list[bool]) -> dict:
 
 def judge_human_agreement(judge_scores: list[int], human_scores: list[int]) -> dict:
     """Agreement between the LLM judge and a human on the same reply-quality scale.
-    Report this explicitly in the report — a judge that doesn't correlate with human
+    Report this explicitly in the report , a judge that doesn't correlate with human
     judgment invalidates every downstream quality number that relies on it."""
     exact_match = sum(j == h for j, h in zip(judge_scores, human_scores)) / len(judge_scores)
     within_one = sum(abs(j - h) <= 1 for j, h in zip(judge_scores, human_scores)) / len(judge_scores)

@@ -1,5 +1,5 @@
-"""End-to-end pipeline: for each customer message, classify intent, retrieve grounding
-examples, draft a reply, and decide auto-handle vs. escalate.
+"""End-to-end pipeline: classify intent, retrieve grounding examples, draft a reply,
+then decide auto-handle vs escalate.
 
 Run against the golden set for evaluation, or against arbitrary input for a demo.
 """
@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from tqdm import tqdm
 
-# Ensure src/ is in sys.path when running from any working directory
+# Keep src/ importable regardless of the working directory the script is run from.
 sys.path.insert(0, str(Path(__file__).parent))
 
 from classifier import classify
@@ -23,21 +23,23 @@ from retrieval import RetrievalIndex
 load_dotenv()
 
 
-def run_one(message: str, index: RetrievalIndex, use_reranker: bool = True) -> dict:
+def run_one(message: str, index: RetrievalIndex, use_reranker: bool = True,
+            exclude_pair_id: str | None = None) -> dict:
     intent_result = classify(message)
 
     if intent_result["intent"] in NEVER_AUTO_DRAFT_INTENTS:
-        # Route directly to a human without generating any draft reply — for an intent
-        # like safety_incident, the risk is in the act of AI-drafting a response at
-        # all, not just in whether it gets auto-sent. See decision_log.md.
-        reply_result = {"reply": None, "grounded_on": [], "top_similarity": 0.0}
+        # No draft at all for these. The risk is in AI-drafting a reply to something
+        # like an assault report, not just in whether it gets auto-sent.
+        reply_result = {"reply": None, "grounded_on": [], "top_similarity": 0.0,
+                        "ranking_method": "skipped"}
         escalation_result = {
             "escalate": True,
-            "reasons": [f"intent '{intent_result['intent']}' is never auto-drafted — "
+            "reasons": [f"intent '{intent_result['intent']}' is never auto-drafted, "
                         f"routed directly to a human agent"],
         }
     else:
-        reply_result = generate_reply(message, index, use_reranker=use_reranker)
+        reply_result = generate_reply(message, index, use_reranker=use_reranker,
+                                      exclude_pair_id=exclude_pair_id)
         escalation_result = decide(intent_result, reply_result)
 
     return {
@@ -48,6 +50,7 @@ def run_one(message: str, index: RetrievalIndex, use_reranker: bool = True) -> d
         "reply": reply_result["reply"],
         "grounded_on": reply_result["grounded_on"],
         "top_similarity": reply_result["top_similarity"],
+        "ranking_method": reply_result.get("ranking_method"),
         "escalate": escalation_result["escalate"],
         "escalation_reasons": escalation_result["reasons"],
     }
@@ -59,7 +62,10 @@ def main() -> None:
     ap.add_argument("--index", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--no-rerank", action="store_true",
-                    help="Skip cross-encoder reranking (recommended on CPU for 100x faster speed)")
+                    help="Skip cross-encoder reranking (much faster on CPU)")
+    ap.add_argument("--allow-self-retrieval", action="store_true",
+                    help="Do not exclude a row's own pair from its retrieval results. "
+                         "Off by default: leaving it on leaks the ground-truth reply.")
     args = ap.parse_args()
 
     index = RetrievalIndex.load(args.index)
@@ -68,7 +74,7 @@ def main() -> None:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Check for existing completed predictions to resume seamlessly
+    # Resume support, so a rate-limited or interrupted run can be restarted.
     processed_ids = set()
     if out_path.exists():
         for line in out_path.open():
@@ -87,12 +93,17 @@ def main() -> None:
             pid = row.get("pair_id")
             if pid and pid in processed_ids:
                 continue
-            result = run_one(row["customer_text"], index, use_reranker=not args.no_rerank)
+            result = run_one(
+                row["customer_text"],
+                index,
+                use_reranker=not args.no_rerank,
+                exclude_pair_id=None if args.allow_self_retrieval else pid,
+            )
             result["pair_id"] = pid
             f.write(json.dumps(result) + "\n")
             f.flush()
 
-    print(f"Finished! Output written to {out_path}")
+    print(f"Finished. Output written to {out_path}")
 
 
 if __name__ == "__main__":

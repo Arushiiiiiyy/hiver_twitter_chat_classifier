@@ -35,14 +35,21 @@ def get_local_model(model_name: str = "Qwen/Qwen2.5-1.5B-Instruct"):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        print(f"\n[Local LLM] Loading {model_name} onto GPU...")
+        _has_gpu = torch.cuda.is_available()
+        _device = "cuda" if _has_gpu else "cpu"
+        print(f"\n[Local LLM] Loading {model_name} onto {_device.upper()}...")
+        if not _has_gpu:
+            print("[Local LLM] No GPU detected , running on CPU (this will be slow for long inputs).")
+
         _LOCAL_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
         _LOCAL_MODEL = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto" if torch.cuda.is_available() else None,
+            torch_dtype=torch.float16 if _has_gpu else torch.float32,
+            device_map="auto" if _has_gpu else None,
         )
-        print(f"[Local LLM] {model_name} loaded successfully.")
+        if not _has_gpu:
+            _LOCAL_MODEL = _LOCAL_MODEL.to("cpu")
+        print(f"[Local LLM] {model_name} loaded successfully on {_device.upper()}.")
     return _LOCAL_MODEL, _LOCAL_TOKENIZER
 
 

@@ -1,5 +1,5 @@
-"""Draft a reply grounded in how this brand historically resolved similar issues,
-using the retrieval index built in retrieval.py.
+"""Draft a reply grounded in how the brand historically resolved similar issues,
+using the retrieval index built by retrieval.py.
 """
 from __future__ import annotations
 
@@ -7,9 +7,14 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from llm_utils import safe_chat_completion
-from reranker import rerank as rerank_candidates
-from retrieval import RetrievalIndex
+try:
+    from llm_utils import safe_chat_completion
+    from reranker import rerank as rerank_candidates
+    from retrieval import RetrievalIndex
+except ImportError:
+    from src.llm_utils import safe_chat_completion
+    from src.reranker import rerank as rerank_candidates
+    from src.retrieval import RetrievalIndex
 
 load_dotenv()
 
@@ -30,7 +35,7 @@ def _client() -> OpenAI | None:
 
 PROMPT_TEMPLATE = """You are a customer-support agent for this brand. Draft a reply to
 the customer's message below. Match the brand's tone and typical resolution pattern
-shown in the past examples — don't invent policies (refund amounts, timelines) that
+shown in the past examples. Do not invent policies (refund amounts, timelines) that
 aren't grounded in those examples or the customer's message itself. Keep it to 1-3
 sentences, Twitter-reply length.
 
@@ -43,21 +48,22 @@ Reply:"""
 
 
 def generate_reply(message: str, index: RetrievalIndex, k: int = 3,
-                    model: str | None = None, use_reranker: bool = True,
-                    retrieve_n: int = 20) -> dict:
-    """Two-stage retrieval when use_reranker=True: embedding search pulls `retrieve_n`
-    candidates cheaply, the cross-encoder reranks them and keeps the top `k` for the
-    prompt. Set use_reranker=False to fall back to embedding-only ranking — useful for
-    the "retrieval only" vs. "retrieval + rerank" ablation in the report.
+                   model: str | None = None, use_reranker: bool = True,
+                   retrieve_n: int = 20, exclude_pair_id: str | None = None) -> dict:
+    """Two-stage retrieval when use_reranker=True: embedding search pulls retrieve_n
+    candidates, the cross-encoder reranks them and keeps the top k for the prompt.
+
+    exclude_pair_id is passed through to drop the query's own pair from retrieval,
+    which is required during evaluation to avoid leaking the ground-truth reply.
     """
-    model = model or os.environ.get("LLM_MODEL", "gpt-4o-mini")
+    model = model or os.environ.get("LLM_MODEL", "gemini-2.0-flash")
 
     if use_reranker:
-        candidates = index.query(message, k=retrieve_n)
+        candidates = index.query(message, k=retrieve_n, exclude_pair_id=exclude_pair_id)
         retrieved = rerank_candidates(message, candidates, top_k=k)
         ranking_method = "embedding+rerank"
     else:
-        retrieved = index.query(message, k=k)
+        retrieved = index.query(message, k=k, exclude_pair_id=exclude_pair_id)
         ranking_method = "embedding_only"
 
     examples_block = "\n".join(

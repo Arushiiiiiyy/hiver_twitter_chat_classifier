@@ -1,0 +1,29 @@
+{
+  "n_examples": 188,
+  "intent_accuracy": {
+    "your_system": {
+      "accuracy": 0.25,
+      "macro_f1": 0.25793383894038974
+    },
+    "baseline_keyword": {
+      "accuracy": 0.2127659574468085,
+      "macro_f1": 0.19510464727856033
+    },
+    "baseline_tfidf_logreg_heldout": {
+      "accuracy": 0.3508771929824561,
+      "macro_f1": 0.20562610229276895
+    }
+  },
+  "escalation_agreement": {
+    "accuracy": 0.6223404255319149,
+    "cohen_kappa": 0.24468085106382975
+  },
+  "reply_quality_llm_judge": {
+    "mean_overall_score": 2.9269662921348316,
+    "n_scored": 178,
+    "n_unparseable": 0
+  },
+  "judge_human_agreement": {
+    "note": "eval/human_judge_check.jsonl not found \u2014 you must hand-score a ~30-example subsample yourself and compare to the judge's scores before trusting the judge numbers above."
+  }
+}

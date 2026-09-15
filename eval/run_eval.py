@@ -53,7 +53,7 @@ def main() -> None:
 
     # Baseline 2: TF-IDF + LogReg, trained/evaluated with 5-fold-ish split by just
     # fitting on 70% and testing on 30% of the golden set (small-n, so treat this
-    # number as directional, not a headline claim — say so in the report).
+    # number as directional, not a headline claim  say so in the report).
     split = int(len(texts) * 0.7)
     tfidf = TfidfLogRegBaseline()
     if split >= 5 and len(set(gold_intents[:split])) > 1:
@@ -99,7 +99,7 @@ def main() -> None:
             report["judge_human_agreement"] = judge_human_agreement(judge_vals, human_vals)
     else:
         report["judge_human_agreement"] = {
-            "note": f"{check_path} not found — you must hand-score a ~30-example subsample "
+            "note": f"{check_path} not found  you must hand-score a ~30-example subsample "
                      "yourself and compare to the judge's scores before trusting the judge numbers above."
         }
 

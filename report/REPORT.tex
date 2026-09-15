@@ -1,0 +1,321 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{fancyvrb}
+\usepackage{titlesec}
+
+\hypersetup{colorlinks=true, linkcolor=blue!50!black, urlcolor=blue!50!black}
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+\setlist{nosep, leftmargin=*}
+
+% Marker for figures that must come from a fresh evaluation run.
+% Delete the macro definition body once every one is filled in.
+\newcommand{\rerun}[1]{\textcolor{red}{\textbf{[#1]}}}
+
+\title{\vspace{-2em}AI Support Agent for \texttt{@Uber\_Support}\\
+\large Hiver SDE Intern Take-Home}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-3em}
+
+\noindent\rule{\textwidth}{0.4pt}
+\smallskip
+
+\noindent\textbf{Dataset:} Customer Support on Twitter (Kaggle, \texttt{thoughtvector/customer-support-on-twitter})\\
+\textbf{Brand:} \texttt{@Uber\_Support}, 56{,}307 brand replies in the full file\\
+\textbf{Golden set:} 188 hand-labelled examples, \texttt{eval/golden\_set.jsonl}\\
+\textbf{Stack:} Qwen3-Embedding-0.6B retrieval, optional Qwen3-Reranker-0.6B, Gemini 2.0 Flash for classification, generation and judging
+
+\noindent\rule{\textwidth}{0.4pt}
+
+\section{Problem framing}
+
+\subsection{What ``good'' means for Uber}
+
+Uber support is not e-commerce support with different nouns. Three things shape what a
+good agent looks like here.
+
+\textbf{Safety outranks fluency, and it is not close.} Around 2\% of inbound messages
+reference a collision, harassment, a theft or police involvement. A fluent, polite,
+wrong reply to any of those is worse than no reply. So the system treats
+\texttt{safety\_incident} as a hard stop: it is always escalated, and unlike every other
+intent it never gets a draft written at all. Putting a machine-written reply to an
+assault report in front of a human to approve is still the machine composing that reply,
+and that is not a judgment the system should be making on its own.
+
+\textbf{Twitter is a triage funnel, not a resolution channel.} Reading Uber's own
+historical replies makes this obvious. The overwhelming majority redirect to DM or the
+in-app help centre, because fares, trip receipts and driver identity cannot be discussed
+on a public timeline. So ``good'' is routing correctly and setting expectations, not
+resolving the issue in 280 characters. The system is not penalised for failing to solve
+anything publicly, because Uber's own agents do not either.
+
+\textbf{No inventing policy.} The generator is grounded in retrieved past resolutions
+specifically so it does not improvise refund amounts, ETAs or compensation. A plausible
+sounding invented promise is a support liability, not a good reply.
+
+\subsection{What was deliberately not built}
+
+\begin{itemize}
+\item \textbf{Multi-turn context.} Only the first brand reply in each thread is used.
+Uber threads redirect to DM almost immediately, so later turns are logistics rather than
+resolution. This has a real cost, visible in Failure Mode 4.
+\item \textbf{Non-English handling.} A character-script filter drops non-Latin-script
+messages, mostly Japanese and Hindi. Building multilingual support would have meant
+either a translation layer or a multilingual judge, and neither would have been evaluated
+properly in the time available. Spanish and other Latin-script languages slip through the
+filter, which is a known gap rather than a solved problem.
+\item \textbf{Fine-tuning.} Uber's historical agents are inconsistent. Fine-tuning on
+their replies would encode that inconsistency as ground truth. Few-shot prompting plus
+retrieval keeps the historical data as evidence rather than as a target.
+\item \textbf{Banking77.} Offered as an optional secondary source for intent work. Its 77
+banking intents do not map onto rideshare traffic, and the brief asks for intents defined
+from the data, so borrowing an unrelated taxonomy would have worked against the point.
+\end{itemize}
+
+\section{Results against two baselines}
+
+All numbers are computed over the 188-example golden set by \texttt{eval/run\_eval.py}.
+
+\subsection{Intent classification}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccl}
+\toprule
+\textbf{System} & \textbf{Accuracy} & \textbf{Macro F1} & \textbf{What it is} \\
+\midrule
+Baseline 1: keyword match & 24.5\% & 0.236 & first substring match wins \\
+Baseline 2: TF-IDF + LogReg & 35.1\% & 0.206 & 70/30 split, unigrams and bigrams \\
+This system: few-shot LLM & \rerun{rerun} & \rerun{rerun} & structured JSON, safety pre-filter \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The keyword baseline is deliberately weak and it shows: it cannot place 131 of 188
+messages at all and dumps them into \texttt{other}. It also cannot tell ``the app
+crashed'' from ``my driver crashed'', which for a rideshare brand is the difference
+between a bug report and a collision.
+
+The TF-IDF baseline is the more honest bar. It wins on raw accuracy by learning the head
+classes and ignoring the tail, which is exactly what its low macro-F1 (0.206) exposes.
+Accuracy alone would flatter it.
+
+\subsection{Escalation and reply quality}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcl}
+\toprule
+\textbf{Metric} & \textbf{Result} & \textbf{Reading} \\
+\midrule
+Escalation accuracy & \rerun{rerun} & agreement with human escalate/hold decision \\
+Escalation Cohen's $\kappa$ & \rerun{rerun} & the number that actually matters, see \S4 \\
+Zero-draft safety routing & \rerun{rerun} & messages that bypassed generation entirely \\
+Reply quality, judge mean & \rerun{rerun} & 1 to 5 across four rubric dimensions \\
+Judge parse failures & \rerun{rerun} & malformed JSON from the judge \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Is the LLM judge trustworthy}
+
+An LLM judge is worth nothing unless it tracks a human. 30 replies were scored
+independently by hand and compared against the judge.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcl}
+\toprule
+\textbf{Agreement metric} & \textbf{Value} & \textbf{Reading} \\
+\midrule
+Exact match & 66.7\% & identical score on 20 of 30 \\
+Within 1 point & 100.0\% & no catastrophic disagreement \\
+Cohen's $\kappa$ & 0.513 & moderate agreement \\
+Judge mean vs human mean & 3.27 vs 3.00 & the judge runs lenient \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The gap between those two means is the useful finding. The judge is systematically
+kinder than a human, and consistently so on vague, non-committal replies. Asked to rate
+``We've followed up via DM!'' against a customer who wanted a specific answer, the judge
+gave 3 and the human gave 2, noting it was evasive. Every reply quality number in this
+report should be read with that 0.27 point optimism bias in mind.
+
+\section{Failure analysis}
+
+Five failure modes, with real examples pulled from the evaluation artifacts. Pair IDs
+trace back to \texttt{eval/golden\_set.jsonl}.
+
+\subsection{Safety incidents classified as ordinary complaints}
+
+This is the worst failure the system has, so it goes first.
+
+Recall on \texttt{safety\_incident} was 6 of 11. Five genuine safety reports were
+classified as something else, and two of those were not escalated at all:
+
+\begin{itemize}
+\item \texttt{1662425\_1662424}: ``i've had multiple male drivers record me. is this
+allowed? they're all using the same type of camera. very uncomfortable''. Classified as
+negative feedback. Not escalated.
+\item \texttt{2508288\_2508287}: a rider describing being publicly berated by a driver
+over their vision and cognitive ability. Classified as negative feedback. Not escalated.
+\item \texttt{1789981\_1789980}: ``my uber driver stole my phone and uber won't help
+me''. Classified as a complaint. Escalated, but without the zero-draft guarantee.
+\end{itemize}
+
+\textbf{Hypothesis.} The hard keyword pre-filter catches explicit emergency vocabulary
+(``police'', ``assault'', ``911'') and the few-shot examples show physical injury. None
+of those cover harassment described calmly, covert recording, or theft. The classifier
+reads measured language as measured severity. The lesson is that the safety category is
+defined by the nature of the event, not the temperature of the writing, and the prompt
+does not currently say so.
+
+\subsection{Hallucinated names copied out of retrieved context}
+
+\texttt{330198\_330197}. Customer message in full: ``Dear plz help....''. The system
+drafted: ``I'm here to assist you, Boby. Please provide more details about what
+assistance is needed.''
+
+There is no Boby. The message carries almost no content, so retrieval returned a weak
+nearest neighbour in which a human agent had addressed someone by that name, and the
+generator copied it. \textbf{Hypothesis:} with nothing to ground against, the model
+treats retrieved text as a template to fill rather than as evidence. Low retrieval
+similarity should suppress generation, not proceed with it.
+
+\subsection{Replies that reference links the cleaning step removed}
+
+\texttt{960484\_960482}. Customer: ``hey, so we took a thermus from our driver by mistake
+and we don't know how to return it. Help!!''. Draft reply: ``Hi there! Please reach out
+to and fill out the 4 boxes at the bottom so we can get in touch.''
+
+``reach out to'' with nothing after it. \textbf{Hypothesis:} \texttt{data\_prep.py}
+strips URLs from both sides of every pair. Retrieved examples therefore contain the
+grammar of linking without the link, and the generator reproduces the dangling phrasing.
+The cleaning step and the generator disagree about what the data means.
+
+\subsection{Single-word follow-ups with no context}
+
+\texttt{1279123\_1279122}. The entire customer message is ``Sent''.
+
+Labelled \texttt{other} by hand because in isolation it genuinely is unclassifiable.
+\textbf{Hypothesis:} this is the direct cost of the first-reply-only decision in
+\S1.2. ``Sent'' means something specific if the previous turn was ``please DM us your
+trip ID'', and nothing at all without it. The system is being asked a question that
+cannot be answered from the input it is given, and the golden set label reflects that
+honestly rather than pretending a correct answer exists.
+
+\subsection{Safety false positives on ordinary frustration}
+
+The same pre-filter that misses calm harassment reports also over-fires. Six messages
+were pushed into \texttt{safety\_incident} that were not: lost keys in a car
+(\texttt{order\_delivery}), a Pool driver who did not arrive but charged anyway
+(\texttt{billing\_refund}), an account compromise (\texttt{account\_access}).
+
+\textbf{Hypothesis:} substring matching on words like ``police'' and ``accident'' has no
+notion of who the sentence is about. These errors are much cheaper than \S3.1, since the
+cost is an unnecessary human review rather than a missed incident, and that asymmetry is
+deliberate. It is still a precision problem worth naming.
+
+\section{What is misleading about my headline number}
+
+\subsection{The evaluation had a retrieval leak, and the first set of numbers was invalid}
+
+Worth stating plainly because it is the largest thing that went wrong. Golden-set
+messages also live in the retrieval index. In the first evaluation run, 176 of 188
+predictions retrieved the query's own pair as the top result at similarity exactly 1.0,
+which means the generator was shown the ground-truth reply before writing its own.
+
+Two consequences. Reply quality was inflated, because the model was paraphrasing an
+answer it had been handed. More subtly, the grounding-similarity branch of the escalation
+rule never fired once, because similarity never dropped below the 0.55 threshold. One
+third of the escalation policy was dead code and the numbers gave no hint of it.
+
+\texttt{RetrievalIndex.query} now takes \texttt{exclude\_pair\_id} and the pipeline
+passes each row's own ID. The affected results are archived unused in
+\texttt{eval/stale\_pre\_fix/}. The general lesson is that a similarity of exactly 1.0
+appearing in 94\% of rows should have been read as a bug immediately rather than as
+strong retrieval.
+
+\subsection{Escalation accuracy is the wrong number to quote}
+
+The golden set splits 94 to 94 on escalate versus hold. On a perfectly balanced set a
+coin flip scores 50\% and a system that escalates everything scores 50\%, so raw accuracy
+has a floor that looks respectable while meaning nothing. Cohen's $\kappa$ is reported
+alongside it for that reason, and $\kappa$ is the number to argue about.
+
+Worth noting that the balance is an artefact of stratified sampling. Real Uber traffic is
+nowhere near 50\% escalation-worthy, so neither figure transfers to production volumes
+without recalibration.
+
+\subsection{A taxonomy change silently broke the intent numbers}
+
+Partway through, an extra intent (\texttt{feedback\_negative}, splitting venting from
+actionable complaints) was added to the classifier. The golden set had already been
+labelled without it. The system then predicted a label the ground truth could not contain
+55 times, which accounted for 44 of 138 errors and pushed accuracy from roughly 0.40 down
+to 0.27.
+
+Nothing in the evaluation flagged this. It looked like a bad model. The split is a real
+distinction and worth revisiting, but only together with a relabelling pass, so the intent
+was removed to match what the golden set actually encodes.
+
+\subsection{The TF-IDF baseline is trained on 131 examples}
+
+Ten classes, 131 training rows, roughly 13 per class, several classes in single digits.
+It is a directional sanity check and nothing more. It should not be read as a ceiling on
+what classical methods could do here.
+
+\subsection{$N=188$ is small, and the interval is wide}
+
+A 95\% Wilson interval on a proportion near 0.40 at $N=188$ spans roughly $\pm 7$ points.
+Differences smaller than that between systems are noise. \texttt{service\_outage} drew
+zero labels in the sample, so any per-class metric for it is computed over an empty
+support set and should be ignored rather than interpreted.
+
+\subsection{Nothing here measures faithfulness}
+
+The judge rates whether a reply reads as correct. It does not check the reply against the
+retrieved context. A reply that contradicts the historical resolution it was grounded on
+can still score well by sounding right, and the ``Boby'' failure in \S3.2 is exactly that
+category of error slipping past a quality score.
+
+\section{What one more week would go on}
+
+\begin{enumerate}
+\item \textbf{Fix the safety recall problem first.} 6 of 11 is not shippable. Concretely:
+add few-shot examples covering harassment, covert recording and theft described in calm
+language, and evaluate safety recall as a standalone metric with its own threshold rather
+than letting it sit inside macro-F1 where 11 examples cannot move the number.
+\item \textbf{Make low retrieval similarity suppress generation.} The threshold currently
+only influences escalation. When the best match is weak, the right behaviour is to
+produce no draft rather than a confident one built from an unrelated example. That fixes
+\S3.2 directly.
+\item \textbf{Two turns of thread context.} Enough to resolve ``Sent'' and ``DM done''.
+Full dialogue state tracking is not needed for the gain here.
+\item \textbf{Tune the escalation thresholds instead of guessing them.} 0.75 and 0.55
+were never validated. With a balanced golden set available, a sweep with per-intent
+thresholds that weight safety recall above overall accuracy is straightforward.
+\item \textbf{Relabel for the venting versus demand split.} It is a genuine distinction
+that maps to different handling. It needs the golden set relabelled first, in that order,
+which is the lesson from \S4.3.
+\end{enumerate}
+
+\vspace{1em}
+\noindent\rule{\textwidth}{0.4pt}
+\footnotesize
+Reproduction: \texttt{README.md}. Decisions and their reasoning: \texttt{decision\_log.md}.
+Golden set sampling and labelling method: \texttt{eval/golden\_set\_schema.md}.
+All figures regenerate via \texttt{python scripts/report\_numbers.py}.
+
+\end{document}

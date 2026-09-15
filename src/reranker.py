@@ -1,18 +1,10 @@
 """Second-stage reranking over the embedding index's top-N candidates.
 
-Retrieval (retrieval.py) is fast but approximate — it ranks by embedding cosine
-similarity alone. A cross-encoder reranker looks at the (query, candidate) pair
-jointly and is typically meaningfully more accurate at the top of the ranking, at the
-cost of being too slow to run over the whole index (hence the two-stage design: cheap
-embedding search narrows N=20 candidates down, the reranker only has to score those 20).
+Embedding search ranks by cosine similarity alone. A cross-encoder scores the query
+and candidate jointly, which is more accurate but too slow to run over the whole
+index, hence the two-stage design.
 
-This is also a genuine ablation for the report: "retrieval only" vs. "retrieval +
-rerank" is a real, defensible comparison — not just architectural decoration. See
-report/REPORT.md §2.
-
-Requires transformers>=4.51.0 and a recent sentence-transformers with generative
-CrossEncoder support for Qwen3-Reranker (pip install -U sentence-transformers if you
-hit a KeyError: 'qwen3' or the CrossEncoder constructor rejects the model).
+Needs transformers>=4.51.0 and a recent sentence-transformers for Qwen3-Reranker.
 """
 from __future__ import annotations
 

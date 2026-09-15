@@ -50,7 +50,7 @@ Think briefly, then respond ONLY with JSON (no markdown fences):
 
 def judge_reply(message: str, reply: str, model: str | None = None) -> dict:
     import re
-    model = model or os.environ.get("LLM_MODEL", "gpt-4o-mini")
+    model = model or os.environ.get("LLM_MODEL", "gemini-2.0-flash")
     prompt = JUDGE_PROMPT.format(message=message, reply=reply)
     resp = safe_chat_completion(
         _client(),
